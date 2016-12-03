@@ -55,21 +55,24 @@ export class InputComponent extends React.Component{
 
     if(!!this.props.validationFunction) {
       if(this.props.validationFunction.constructor === Array){
+        const validationQuickBail = this.props.validationQuickBail;
         /*
         validationFunction has to return an object in case of error,
           true in case of successful validation
          */
-        this.props.validationFunction.map((valFn, i)=>{
+        const validationResults = this.props.validationFunction.reduce((result, valFn, i)=> {
+          //If quickbail is enabled, don't worry about any future validations if there is already a result
+          if (result.valid === false && validationQuickBail === true) return result;
 
           let validationResult = valFn(value, this);
-          if(validationResult === true){
-            this.valid = (this.valid !== false)? validationResult : this.valid;
-          } else{
-            this.validationErrors.push(validationResult);
-            this.valid = false;
+          if ((validationResult instanceof Error) || (validationResult !== true && typeof validationResult !== 'undefined') || (validationResult === false)) {
+            result.validationErrors.push(validationResult);
+            result.valid = false;
           }
-
-        })
+          return result;
+        }, {valid: undefined, validationErrors: []});
+        this.validationErrors = validationResults.validationErrors;
+        this.valid = (typeof validationResults.valid === 'undefined' ? true : validationResults.valid);
       } else {
         let validationResult = this.props.validationFunction(value, this);
         if(validationResult === true){
@@ -204,8 +207,13 @@ export class InputComponent extends React.Component{
 //   placeholder:React.PropTypes.string,
 // }
 
+InputComponent.defaultProps = {
+  validationQuickBail: false,
+}
+
 InputComponent.propTypes = {
   labelStyle: Text.propTypes.style,
   inputStyle: TextInput.propTypes.style,
-  containerStyle: View.propTypes.style
+  containerStyle: View.propTypes.style,
+  validationQuickBail: React.PropTypes.bool
 }
